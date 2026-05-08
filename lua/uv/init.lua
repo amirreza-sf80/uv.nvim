@@ -77,6 +77,38 @@ M.config = {
 	},
 }
 
+local function locate_venv()
+	local function path_iterator()
+		local cwd = vim.fn.getcwd()
+
+		return function()
+			if not cwd then
+				return nil
+			end
+
+			local result = cwd
+
+			local parent = vim.fn.fnamemodify(cwd, ":h")
+			if parent == cwd then
+				---@diagnostic disable-next-line: cast-local-type
+				cwd = nil
+			else
+				cwd = parent
+			end
+
+			return result
+		end
+	end
+
+	for path in path_iterator() do
+		local candidate = path .. "/.venv"
+		if vim.fn.isdirectory(candidate) == 1 then
+			return candidate
+		end
+	end
+	return nil
+end
+
 -- Command runner - runs shell commands and captures output
 ---@param cmd string
 function M.run_command(cmd)
@@ -182,12 +214,13 @@ function M.auto_activate_venv()
 		return false
 	end
 
-	local venv_path = vim.fn.getcwd() .. "/.venv"
-	if vim.fn.isdirectory(venv_path) == 1 then
-		M.activate_venv(venv_path)
-		return true
+	local venv_path = locate_venv()
+	if not venv_path then
+		return false
 	end
-	return false
+
+	M.activate_venv(venv_path)
+	return true
 end
 
 -- Statusline helper: Check if a virtual environment is active
